@@ -19,7 +19,7 @@ provider:
             - s3:GetObject
             - s3:DeleteObject
           Resource:
-            - arn:aws:s3:::supplier-documents-${self:provider.stage}/*
+            - arn:aws:s3:::supplier-documents-${self:provider.stage}-${aws:accountId}/*
 
         - Effect: Allow
           Action:

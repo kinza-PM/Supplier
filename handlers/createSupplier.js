@@ -41,7 +41,7 @@ export const handler = async (event, context) => {
             });
         }
 
-        const { 
+        let { 
             name, 
             code, 
             category, 
@@ -57,6 +57,13 @@ export const handler = async (event, context) => {
             apiConnectivity,
             financeSetup
         } = fields;
+
+        // Parse JSON string fields from FormData
+        if (typeof contact === 'string') contact = JSON.parse(contact);
+        if (typeof flightMapping === 'string') flightMapping = JSON.parse(flightMapping);
+        if (typeof hotelMapping === 'string') hotelMapping = JSON.parse(hotelMapping);
+        if (typeof apiConnectivity === 'string') apiConnectivity = JSON.parse(apiConnectivity);
+        if (typeof financeSetup === 'string') financeSetup = JSON.parse(financeSetup);
 
         if (!name || !code || !category || !type || !contactPerson || !email || !contact) {
             return createResponse(400, {

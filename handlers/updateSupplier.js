@@ -39,6 +39,23 @@ export const handler = async (event, context) => {
         }
         const body = fields;
 
+        // Parse JSON string fields from FormData
+        if (body.contact && typeof body.contact === 'string') {
+            body.contact = JSON.parse(body.contact);
+        }
+        if (body.flightMapping && typeof body.flightMapping === 'string') {
+            body.flightMapping = JSON.parse(body.flightMapping);
+        }
+        if (body.hotelMapping && typeof body.hotelMapping === 'string') {
+            body.hotelMapping = JSON.parse(body.hotelMapping);
+        }
+        if (body.apiConnectivity && typeof body.apiConnectivity === 'string') {
+            body.apiConnectivity = JSON.parse(body.apiConnectivity);
+        }
+        if (body.financeSetup && typeof body.financeSetup === 'string') {
+            body.financeSetup = JSON.parse(body.financeSetup);
+        }
+
         const getCmd = new GetItemCommand({
             TableName: process.env.SUPPLIERS_TABLE,
             Key: { supplierId: { S: supplierId } }
