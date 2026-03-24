@@ -1,0 +1,320 @@
+service: admin-supplier-management
+frameworkVersion: "3"
+
+custom:
+  serverlessSsmFetch: {}
+   
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-west-1
+  stage: ${opt:stage, 'dev'}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+          Resource:
+            - arn:aws:s3:::supplier-documents-${self:provider.stage}/*
+
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:DeleteItem
+          Resource:
+            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/suppliers-${self:provider.stage}
+            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/suppliers-${self:provider.stage}/index/*
+            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/supplier-history-${self:provider.stage}
+            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/supplier-history-${self:provider.stage}/index/*
+
+        - Effect: Allow
+          Action:
+            - sqs:SendMessage
+          Resource:
+            - arn:aws:sqs:eu-west-1:${aws:accountId}:error-log-queue-${self:provider.stage}
+
+  environment:
+    STAGE: ${self:provider.stage}
+    SUPPLIERS_TABLE: suppliers-${self:provider.stage}
+    SUPPLIER_HISTORY_TABLE: supplier-history-${self:provider.stage}
+    DOCUMENTS_BUCKET: supplier-documents-${self:provider.stage}-${aws:accountId}
+    ERROR_LOG_QUEUE_URL: https://sqs.eu-west-1.amazonaws.com/${aws:accountId}/error-log-queue-${self:provider.stage}
+
+package:
+  patterns:
+    - '!./**'
+    - handlers/**
+    - helper/**
+    - lib/**
+    - package.json
+    - package-lock.json
+    - node_modules/**
+    - '!node_modules/aws-sdk/**'
+    - '!node_modules/**/test/**'
+    - '!node_modules/**/tests/**'
+    - '!node_modules/**/docs/**'
+    - '!node_modules/**/examples/**'
+    - '!node_modules/**/*.md'
+    - '!node_modules/**/*.ts'
+    - '!node_modules/**/*.map'
+  excludeDevDependencies: true
+
+functions:
+  # Supplier Management Functions
+  createSupplier:
+    handler: handlers/createSupplier.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  updateSupplier:
+    handler: handlers/updateSupplier.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier/{supplierId}
+          method: put
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  getAllSuppliers:
+    handler: handlers/getAllSuppliers.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /suppliers
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  getSupplierById:
+    handler: handlers/getSupplierById.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier/{supplierId}
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  deleteSupplier:
+    handler: handlers/deleteSupplier.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier/{supplierId}
+          method: delete
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  updateSupplierStatus:
+    handler: handlers/updateSupplierStatus.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier/{supplierId}/status
+          method: patch
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  toggleSupplierApiStatus:
+    handler: handlers/toggleSupplierApiStatus.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier/{supplierId}/api-status
+          method: patch
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+resources:
+  Resources:
+   
+    ###########################
+    ### S3 Buckets
+    ###########################
+    DocumentsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: supplier-documents-${self:provider.stage}-${aws:accountId}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedOrigins:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+              AllowedHeaders:
+                - '*'
+              MaxAge: 3000
+
+    ###########################
+    ### DynamoDB Tables
+    ###########################
+    SuppliersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: suppliers-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: supplierId
+            AttributeType: S
+          - AttributeName: code
+            AttributeType: S
+          - AttributeName: status
+            AttributeType: S
+          - AttributeName: category
+            AttributeType: S
+          - AttributeName: type
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
+        KeySchema:
+          - AttributeName: supplierId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: CodeIndex
+            KeySchema:
+              - AttributeName: code
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: StatusIndex
+            KeySchema:
+              - AttributeName: status
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: CategoryIndex
+            KeySchema:
+              - AttributeName: category
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: TypeIndex
+            KeySchema:
+              - AttributeName: type
+                KeyType: HASH
+              - AttributeName: createdAt
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+    SupplierHistoryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: supplier-history-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: historyId
+            AttributeType: S
+          - AttributeName: supplierId
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: S
+        KeySchema:
+          - AttributeName: historyId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: SupplierIdIndex
+            KeySchema:
+              - AttributeName: supplierId
+                KeyType: HASH
+              - AttributeName: timestamp
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+
+  Outputs:
+    DocumentsBucketName:
+      Value: !Ref DocumentsBucket
+
+plugins: []
