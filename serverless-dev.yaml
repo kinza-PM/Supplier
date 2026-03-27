@@ -129,6 +129,26 @@ functions:
               - Authorization
             allowCredentials: true
 
+  getActiveSuppliers:
+    handler: handlers/getActiveSuppliers.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /suppliers/active
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
   getSupplierById:
     handler: handlers/getSupplierById.handler
     timeout: 30
@@ -158,6 +178,26 @@ functions:
     events:
       - http:
           path: /supplier/{supplierId}
+          method: delete
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-API-KEY
+              - user_type
+              - user_id
+              - Authorization
+            allowCredentials: true
+
+  softDeleteSupplier:
+    handler: handlers/softDeleteSupplier.handler
+    timeout: 30
+    memorySize: 512
+    layers:
+      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+    events:
+      - http:
+          path: /supplier/{supplierId}/soft-delete
           method: delete
           cors:
             origin: '*'

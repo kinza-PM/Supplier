@@ -11,12 +11,12 @@ export const handler = async (event, context) => {
         console.log("Get All Suppliers Request:", JSON.stringify(event, null, 2));
 
         const queryParams = event.queryStringParameters || {};
-        const { status, category, type, limit, lastEvaluatedKey, all } = queryParams;
+        const { status, category, type, limit, lastEvaluatedKey, all, includeDeleted } = queryParams;
 
         let command;
 
         if (all === 'true') {
-            command = new ScanCommand({
+            const scanParams = {
                 TableName: process.env.SUPPLIERS_TABLE,
                 Limit: limit ? parseInt(limit) : 50,
                 ...(lastEvaluatedKey && {
@@ -24,7 +24,16 @@ export const handler = async (event, context) => {
                         Buffer.from(lastEvaluatedKey, 'base64').toString('utf-8')
                     )
                 })
-            });
+            };
+
+            // Exclude soft-deleted suppliers by default
+            if (includeDeleted !== 'true') {
+                scanParams.FilterExpression = '#status <> :deleted';
+                scanParams.ExpressionAttributeNames = { '#status': 'status' };
+                scanParams.ExpressionAttributeValues = { ':deleted': { S: 'Deleted' } };
+            }
+
+            command = new ScanCommand(scanParams);
         } else {
             let commandParams = {
                 TableName: process.env.SUPPLIERS_TABLE,
@@ -68,34 +77,53 @@ export const handler = async (event, context) => {
                 
                 command = new QueryCommand(commandParams);
             } else {
+                // Exclude soft-deleted suppliers by default for scan
+                if (includeDeleted !== 'true') {
+                    commandParams.FilterExpression = '#status <> :deleted';
+                    commandParams.ExpressionAttributeNames = { '#status': 'status' };
+                    commandParams.ExpressionAttributeValues = { ':deleted': { S: 'Deleted' } };
+                }
+                
                 command = new ScanCommand(commandParams);
             }
         }
 
         const result = await dynamo.send(command);
 
-        const suppliers = result.Items.map(item => ({
-            supplierId: item.supplierId.S,
-            name: item.name.S,
-            code: item.code.S,
-            category: item.category.S,
-            type: item.type.S,
-            currency: item.currency?.S || '',
-            contactPerson: item.contactPerson.S,
-            email: item.email.S,
-            contact: {
-                countryCode: item.countryCode.S,
-                number: item.phoneNumber.S
-            },
-            address: item.address?.S || '',
-            city: item.city?.S || '',
-            country: item.country?.S || '',
-            documents: JSON.parse(item.documents.S),
-            status: item.status.S,
-            apiStatus: item.apiStatus.S,
-            createdAt: item.createdAt.S,
-            updatedAt: item.updatedAt.S
-        }));
+        const suppliers = result.Items.map(item => {
+            const supplier = {
+                supplierId: item.supplierId.S,
+                name: item.name.S,
+                code: item.code.S,
+                category: item.category.S,
+                type: item.type.S,
+                currency: item.currency?.S || '',
+                contactPerson: item.contactPerson.S,
+                email: item.email.S,
+                contact: {
+                    countryCode: item.countryCode.S,
+                    number: item.phoneNumber.S
+                },
+                address: item.address?.S || '',
+                city: item.city?.S || '',
+                country: item.country?.S || '',
+                documents: JSON.parse(item.documents.S),
+                status: item.status.S,
+                apiStatus: item.apiStatus.S,
+                createdAt: item.createdAt.S,
+                updatedAt: item.updatedAt.S
+            };
+
+            // Add soft delete metadata if present
+            if (item.deletedAt?.S) {
+                supplier.deletedAt = item.deletedAt.S;
+            }
+            if (item.deletedBy?.S) {
+                supplier.deletedBy = item.deletedBy.S;
+            }
+
+            return supplier;
+        });
 
         let nextToken = null;
         if (result.LastEvaluatedKey) {

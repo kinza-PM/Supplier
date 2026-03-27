@@ -59,6 +59,14 @@ export const handler = async (event, context) => {
             updatedAt: result.Item.updatedAt.S
         };
 
+        // Add soft delete metadata if present
+        if (result.Item.deletedAt?.S) {
+            supplier.deletedAt = result.Item.deletedAt.S;
+        }
+        if (result.Item.deletedBy?.S) {
+            supplier.deletedBy = result.Item.deletedBy.S;
+        }
+
         // Add optional configuration fields if present
         if (result.Item.flightMapping?.S) {
             supplier.flightMapping = JSON.parse(result.Item.flightMapping.S);
