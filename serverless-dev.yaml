@@ -3,6 +3,9 @@ frameworkVersion: "3"
 
 custom:
   serverlessSsmFetch: {}
+  prune:
+    automatic: true
+    number: 3
    
 provider:
   name: aws
@@ -30,23 +33,23 @@ provider:
             - dynamodb:Scan
             - dynamodb:DeleteItem
           Resource:
-            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/suppliers-${self:provider.stage}
-            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/suppliers-${self:provider.stage}/index/*
-            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/supplier-history-${self:provider.stage}
-            - arn:aws:dynamodb:eu-west-1:${aws:accountId}:table/supplier-history-${self:provider.stage}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/suppliers-${self:provider.stage}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/suppliers-${self:provider.stage}/index/*
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/supplier-history-${self:provider.stage}
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/supplier-history-${self:provider.stage}/index/*
 
         - Effect: Allow
           Action:
             - sqs:SendMessage
           Resource:
-            - arn:aws:sqs:eu-west-1:${aws:accountId}:error-log-queue-${self:provider.stage}
+            - arn:aws:sqs:${aws:region}:${aws:accountId}:error-log-queue-${self:provider.stage}
 
   environment:
     STAGE: ${self:provider.stage}
     SUPPLIERS_TABLE: suppliers-${self:provider.stage}
     SUPPLIER_HISTORY_TABLE: supplier-history-${self:provider.stage}
     DOCUMENTS_BUCKET: supplier-documents-${self:provider.stage}-${aws:accountId}
-    ERROR_LOG_QUEUE_URL: https://sqs.eu-west-1.amazonaws.com/${aws:accountId}/error-log-queue-${self:provider.stage}
+    ERROR_LOG_QUEUE_URL: https://sqs.${aws:region}.amazonaws.com/${aws:accountId}/error-log-queue-${self:provider.stage}
 
 package:
   patterns:
@@ -74,7 +77,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier
@@ -94,7 +97,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier/{supplierId}
@@ -114,7 +117,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /suppliers
@@ -134,7 +137,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /suppliers/active
@@ -154,7 +157,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier/{supplierId}
@@ -174,7 +177,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier/{supplierId}
@@ -194,7 +197,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier/{supplierId}/soft-delete
@@ -214,7 +217,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier/{supplierId}/status
@@ -234,7 +237,7 @@ functions:
     timeout: 30
     memorySize: 512
     layers:
-      - arn:aws:lambda:eu-west-1:${aws:accountId}:layer:authorizerLayer:11
+      - arn:aws:lambda:${aws:region}:${aws:accountId}:layer:authorizerLayer:11
     events:
       - http:
           path: /supplier/{supplierId}/api-status
@@ -353,8 +356,6 @@ resources:
             Projection:
               ProjectionType: ALL
 
-  Outputs:
-    DocumentsBucketName:
-      Value: !Ref DocumentsBucket
-
-plugins: []
+plugins:
+  - serverless-ssm-fetch
+  - serverless-prune-plugin
